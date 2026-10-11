@@ -2,170 +2,137 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MOGE Carwash & Food</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #101820;
-      color: white;
-      text-align: center;
-      padding: 24px;
-    }
-    .card {
-      max-width: 420px;
-      margin: 30px auto;
-      padding: 24px;
-      background: #202b35;
-      border-radius: 18px;
-    }
-    input, button {
-      box-sizing: border-box;
-      width: 100%;
-      padding: 13px;
-      margin: 8px 0;
-      border-radius: 9px;
-      border: 0;
-      font-size: 16px;
-    }
-    button {
-      background: #e4b34c;
-      color: #101820;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    .muted { color: #cbd5df; }
-    #hasil {
-      overflow-wrap: anywhere;
-      margin-top: 18px;
-    }
-    .member {
-      background: #101820;
-      border: 1px solid #e4b34c;
-      border-radius: 12px;
-      padding: 16px;
-      margin-top: 16px;
-    }
-    .nomor {
-      color: #e4b34c;
-      font-size: 24px;
-      font-weight: bold;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MOGE Carwash & Food</title>
+<style>
+body{font-family:Arial,sans-serif;background:#101820;color:white;text-align:center;padding:24px}
+.card{max-width:420px;margin:30px auto;padding:24px;background:#202b35;border-radius:18px}
+input,button{box-sizing:border-box;width:100%;padding:13px;margin:8px 0;border-radius:9px;border:0;font-size:16px}
+button{background:#e4b34c;color:#101820;font-weight:bold;cursor:pointer}
+.muted{color:#cbd5df}
+#hasil{overflow-wrap:anywhere;margin-top:18px}
+.member{background:#101820;border:1px solid #e4b34c;border-radius:12px;padding:16px;margin-top:16px}
+.nomor{color:#e4b34c;font-size:24px;font-weight:bold}
+</style>
 </head>
 <body>
-  <div class="card">
-    <h1>MOGE</h1>
-    <h2>Carwash &amp; Food</h2>
-    <p class="muted">Kartu Loyalitas Pelanggan</p>
+<div class="card">
+<h1>MOGE</h1>
+<h2>Carwash &amp; Food</h2>
+<p class="muted">Kartu Loyalitas Pelanggan</p>
 
-    <input id="nama" placeholder="Nama pelanggan">
-    <input id="plat" placeholder="Nomor polisi kendaraan">
-    <input id="telepon" type="tel" placeholder="Nomor WhatsApp">
+<input id="nama" placeholder="Nama pelanggan">
+<input id="plat" placeholder="Nomor polisi kendaraan">
+<input id="telepon" type="tel" placeholder="Nomor WhatsApp">
+<button onclick="daftar()">Daftar Pelanggan</button>
+<div id="hasil" aria-live="polite"></div>
 
-    <button onclick="daftar()">Daftar Pelanggan</button>
-    <div id="hasil" aria-live="polite"></div>
+<p class="muted">Kumpulkan 10 kali cuci untuk mendapatkan 1 kali cuci gratis.</p>
+<p class="muted">Garansi Hujan — S&amp;K berlaku.</p>
+</div>
 
-    <p class="muted">
-      Kumpulkan 10 kali cuci untuk mendapatkan
-      1 kali cuci gratis.
-    </p>
-    <p class="muted">Garansi Hujan — S&amp;K berlaku.</p>
-  </div>
+<script>
+const KEY_DATA='moge_loyalty_members_v1';
+const KEY_NEXT='moge_loyalty_next_number_v1';
+let memberAktif=null;
 
-  <script>
-    const KEY_DATA = 'moge_loyalty_members_v1';
-    const KEY_NEXT = 'moge_loyalty_next_number_v1';
+function bacaData(){
+  try{return JSON.parse(localStorage.getItem(KEY_DATA)||'[]')}
+  catch{return []}
+}
+function simpanData(data){
+  localStorage.setItem(KEY_DATA,JSON.stringify(data));
+}
+function daftar(){
+  const nama=document.getElementById('nama').value.trim();
+  const plat=document.getElementById('plat').value.trim().toUpperCase();
+  const telepon=document.getElementById('telepon').value.trim();
+  if(!nama||!plat||!telepon){alert('Mohon isi semua data.');return}
 
-    function bacaData() {
-      try {
-        const data = JSON.parse(localStorage.getItem(KEY_DATA) || '[]');
-        return Array.isArray(data) ? data : [];
-      } catch {
-        return [];
-      }
-    }
+  const anggota=bacaData();
+  let member=anggota.find(m=>m.telepon===telepon);
+  if(!member){
+    let berikutnya=Number(localStorage.getItem(KEY_NEXT)||'1');
+    if(!Number.isSafeInteger(berikutnya)||berikutnya<1)berikutnya=1;
+    member={nomor:'MOGE-'+String(berikutnya).padStart(5,'0'),
+      nama,plat,telepon,tanggal:new Date().toISOString(),
+      jumlahCuci:0,gratisTersedia:0};
+    anggota.push(member);
+    try{
+      simpanData(anggota);
+      localStorage.setItem(KEY_NEXT,String(berikutnya+1));
+    }catch{alert('Data tidak dapat disimpan di browser ini.');return}
+  }
+  memberAktif=member.nomor;
+  tampilkan(member);
+}
+function tampilkan(member){
+  const hasil=document.getElementById('hasil');
+  hasil.replaceChildren();
+  const kartu=document.createElement('div');
+  kartu.className='member';
 
-    function daftar() {
-      const nama = document.getElementById('nama').value.trim();
-      const plat = document.getElementById('plat').value.trim();
-      const telepon = document.getElementById('telepon').value.trim();
-      const hasil = document.getElementById('hasil');
+  function teks(t,kelas){
+    const p=document.createElement('p');
+    p.textContent=t;
+    if(kelas)p.className=kelas;
+    kartu.appendChild(p);
+  }
+  const judul=document.createElement('h3');
+  judul.textContent='Data Member';
+  kartu.appendChild(judul);
+  teks(member.nomor,'nomor');
+  teks('Nama: '+member.nama);
+  teks('Nomor polisi: '+member.plat);
+  teks('Jumlah cuci: '+(member.jumlahCuci||0)+' kali');
+  teks('Cuci gratis tersedia: '+(member.gratisTersedia||0));
 
-      if (!nama || !plat || !telepon) {
-        alert('Mohon isi semua data.');
-        return;
-      }
+  const tambah=document.createElement('button');
+  tambah.textContent='Tambah 1 Kali Cuci';
+  tambah.onclick=()=>tambahCuci(member.nomor);
+  kartu.appendChild(tambah);
 
-      let anggota = bacaData();
+  const pakai=document.createElement('button');
+  pakai.textContent='Gunakan 1 Cuci Gratis';
+  pakai.onclick=()=>gunakanGratis(member.nomor);
+  kartu.appendChild(pakai);
 
-      // Cegah pendaftaran ganda dengan nomor WhatsApp yang sama.
-      const lama = anggota.find(
-        m => m.telepon === telepon
-      );
-
-      if (lama) {
-        tampilkan(lama);
-        return;
-      }
-
-      let berikutnya = Number(
-        localStorage.getItem(KEY_NEXT) || '1'
-      );
-
-      if (!Number.isSafeInteger(berikutnya) || berikutnya < 1) {
-        berikutnya = 1;
-      }
-
-      const member = {
-        nomor: 'MOGE-' + String(berikutnya).padStart(5, '0'),
-        nama: nama,
-        plat: plat,
-        telepon: telepon,
-        tanggal: new Date().toISOString(),
-        jumlahCuci: 0
-      };
-
-      anggota.push(member);
-
-      try {
-        localStorage.setItem(KEY_DATA, JSON.stringify(anggota));
-        localStorage.setItem(KEY_NEXT, String(berikutnya + 1));
-      } catch {
-        alert('Data tidak dapat disimpan di browser ini.');
-        return;
-      }
-
-      tampilkan(member);
-    }
-
-    function tampilkan(member) {
-      const hasil = document.getElementById('hasil');
-      hasil.replaceChildren();
-
-      const kartu = document.createElement('div');
-      kartu.className = 'member';
-
-      const judul = document.createElement('h3');
-      judul.textContent = 'Pendaftaran Berhasil!';
-
-      const nomor = document.createElement('p');
-      nomor.className = 'nomor';
-      nomor.textContent = member.nomor;
-
-      const nama = document.createElement('p');
-      nama.textContent = 'Nama: ' + member.nama;
-
-      const plat = document.createElement('p');
-      plat.textContent = 'Nomor polisi: ' + member.plat;
-
-      const cuci = document.createElement('p');
-      cuci.textContent = 'Jumlah cuci: ' + (member.jumlahCuci || 0);
-
-      kartu.append(judul, nomor, nama, plat, cuci);
-      hasil.appendChild(kartu);
-    }
-  </script>
+  hasil.appendChild(kartu);
+}
+function cariMember(nomor){
+  const anggota=bacaData();
+  return {anggota,member:anggota.find(m=>m.nomor===nomor)};
+}
+function tambahCuci(nomor){
+  const data=cariMember(nomor);
+  if(!data.member)return;
+  const m=data.member;
+  m.jumlahCuci=(m.jumlahCuci||0)+1;
+  if(m.jumlahCuci>=10){
+    m.jumlahCuci-=10;
+    m.gratisTersedia=(m.gratisTersedia||0)+1;
+    alert('Selamat! Pelanggan mendapatkan 1 kali cuci gratis.');
+  }else{
+    alert('Jumlah cuci berhasil ditambahkan.');
+  }
+  simpanData(data.anggota);
+  tampilkan(m);
+}
+function gunakanGratis(nomor){
+  const data=cariMember(nomor);
+  if(!data.member)return;
+  const m=data.member;
+  if(!(m.gratisTersedia>0)){
+    alert('Belum ada cuci gratis yang tersedia.');
+    return;
+  }
+  if(!confirm('Gunakan 1 jatah cuci gratis pelanggan ini?'))return;
+  m.gratisTersedia--;
+  simpanData(data.anggota);
+  tampilkan(m);
+  alert('Cuci gratis berhasil digunakan.');
+}
+</script>
 </body>
 </html>
