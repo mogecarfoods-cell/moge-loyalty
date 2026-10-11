@@ -450,6 +450,90 @@ async function hubungkan() {
     alert('Sinkronisasi gagal: ' + error.message);
   }
 }
+
+async function hubungkan() {
+  const pin = document.getElementById('adminPin').value.trim();
+  const status = document.getElementById('statusSync');
+
+  if (!pin) {
+    alert('Masukkan PIN Admin terlebih dahulu.');
+    return;
+  }
+
+  status.textContent = 'Menghubungkan ke server...';
+
+  try {
+    const response = await fetch('/api/loyalty', {
+      method: 'GET',
+      headers: { 'x-moge-pin': pin }
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Gagal terhubung ke server.');
+    }
+
+    const lokal = bacaData();
+    const server = Array.isArray(result.members) ? result.members : [];
+    const gabungan = [...server];
+
+    lokal.forEach(member => {
+      const index = gabungan.findIndex(
+        item => item.nomor === member.nomor
+      );
+
+      if (index === -1) {
+        gabungan.push(member);
+      } else {
+        // Pertahankan data lokal untuk member yang nomornya sama.
+        gabungan[index] = member;
+      }
+    });
+
+    for (const member of gabungan) {
+      const simpanResponse = await fetch('/api/loyalty', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-moge-pin': pin
+        },
+        body: JSON.stringify({ member })
+      });
+
+      if (!simpanResponse.ok) {
+        const detail = await simpanResponse.json().catch(() => ({}));
+        throw new Error(
+          detail.error || 'Gagal menyimpan member ke server.'
+        );
+      }
+    }
+
+    simpan(gabungan);
+
+    const nomorBerikutnya = gabungan.reduce((maks, member) => {
+      const cocok = /^MOGE-(\d+)$/.exec(member.nomor || '');
+      return cocok ? Math.max(maks, Number(cocok[1]) + 1) : maks;
+    }, 1);
+
+    const nomorLokal = Number(localStorage.getItem(KEY_NEXT) || '1');
+    localStorage.setItem(
+      KEY_NEXT,
+      String(Math.max(
+        Number.isSafeInteger(nomorLokal) && nomorLokal > 0
+          ? nomorLokal : 1,
+        nomorBerikutnya
+      ))
+    );
+
+    status.textContent =
+      'Sinkronisasi berhasil. Total member: ' + gabungan.length;
+    alert('Sinkronisasi berhasil. Total member: ' + gabungan.length);
+  } catch (error) {
+    status.textContent = 'Sinkronisasi gagal: ' + error.message;
+    alert('Sinkronisasi gagal: ' + error.message);
+  }
+}
 </script>
 </body>
 </html>
