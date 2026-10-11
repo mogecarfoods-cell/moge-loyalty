@@ -243,7 +243,7 @@ function tampilkan(m){
     if(t.jenis==='Cuci berbayar'&&t.status==='berhasil'){
       const b=document.createElement('button');
       b.className='cancel';
-      b.textContent='Batalkan Cuci Ini';
+      b.textContent='HAPUS / BATALKAN CUCI';
       b.onclick=()=>batalkan(t.id);
       e.appendChild(b);
     }
