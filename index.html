@@ -6,17 +6,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MOGE Carwash & Food</title>
 <style>
-body{font-family:Arial,sans-serif;background:#101820;color:white;text-align:center;padding:20px}
-.card{max-width:440px;margin:24px auto;padding:22px;background:#202b35;border-radius:18px}
-input,button{box-sizing:border-box;width:100%;padding:13px;margin:7px 0;border:0;border-radius:9px;font-size:16px}
+*{box-sizing:border-box}
+body{font-family:Arial,sans-serif;background:#101820;color:white;text-align:center;padding:16px}
+.card{max-width:440px;margin:20px auto;padding:22px;background:#202b35;border-radius:18px}
+input,button{width:100%;padding:13px;margin:7px 0;border:0;border-radius:9px;font-size:16px}
 button{background:#e4b34c;color:#101820;font-weight:bold;cursor:pointer}
 .secondary{background:#cbd5df}
-.cancel{background:#b84b4b;color:white}
-.muted{color:#cbd5df}
+.cancel{background:#c62828;color:white}
+.muted,.small{color:#cbd5df}
+.small{font-size:13px}
 .member{background:#101820;border:1px solid #e4b34c;border-radius:12px;padding:14px;margin-top:14px;text-align:left;overflow-wrap:anywhere}
 .nomor{color:#e4b34c;font-size:24px;font-weight:bold;text-align:center}
 .entry{border-bottom:1px solid #394653;padding:10px 0}
-.small{font-size:13px;color:#cbd5df}
 </style>
 </head>
 <body>
@@ -28,10 +29,10 @@ button{background:#e4b34c;color:#101820;font-weight:bold;cursor:pointer}
   <input id="nama" placeholder="Nama pelanggan">
   <input id="plat" placeholder="Nomor polisi kendaraan">
   <input id="telepon" type="tel" placeholder="Nomor WhatsApp">
-  <button onclick="daftar()">Daftar / Cari Member</button>
+  <button onclick="daftar()">DAFTAR / CARI MEMBER</button>
   <div id="hasil" aria-live="polite"></div>
 
-  <p class="muted">10 kali cuci berbayar = 1 kali cuci gratis.</p>
+  <p class="muted">Kumpulkan 10 kali cuci berbayar untuk mendapatkan 1 kali cuci gratis.</p>
   <p class="muted">Garansi Hujan — S&amp;K berlaku.</p>
 </div>
 
@@ -44,211 +45,293 @@ function bacaData(){
   try{
     const data=JSON.parse(localStorage.getItem(KEY_DATA)||'[]');
     if(!Array.isArray(data))return [];
+
     data.forEach(m=>{
       if(!Array.isArray(m.riwayat))m.riwayat=[];
-      if(!Array.isArray(m.hadiah)){
-        m.hadiah=[];
-        for(let i=0;i<(m.gratisTersedia||0);i++){
-          m.hadiah.push({id:'lama-'+m.nomor+'-'+i,status:'tersedia',tanggal:null});
+      if(typeof m.totalKlaim!=='number')m.totalKlaim=0;
+
+      // Pertahankan jumlah klaim yang tersimpan dari versi lama.
+      if(Array.isArray(m.hadiah)){
+        const klaimLama=m.hadiah.filter(h=>h.status==='diklaim').length;
+        m.totalKlaim=Math.max(m.totalKlaim,klaimLama);
+      }
+
+      // Migrasi data cuci dari versi lama bila memungkinkan.
+      if(!m.riwayat.some(t=>t.jenis==='Cuci berbayar') &&
+         typeof m.jumlahCuci==='number' && m.jumlahCuci>0){
+        for(let i=0;i<m.jumlahCuci;i++){
+          m.riwayat.push({
+            id:'MIGRASI-'+m.nomor+'-'+i,
+            jenis:'Cuci berbayar',
+            status:'berhasil',
+            tanggal:m.tanggalDaftar||new Date().toISOString(),
+            migrasi:true
+          });
         }
       }
-      if(typeof m.jumlahCuci!=='number')m.jumlahCuci=0;
-      if(typeof m.totalKlaim!=='number')m.totalKlaim=0;
-      m.gratisTersedia=m.hadiah.filter(h=>h.status==='tersedia').length;
     });
     return data;
-  }catch{return []}
+  }catch(e){return []}
 }
+
 function simpan(data){
   localStorage.setItem(KEY_DATA,JSON.stringify(data));
 }
-function tanggal(waktu=new Date()){
+
+function tanggal(waktu){
+  if(!waktu)return 'Tanggal tidak tersedia';
   return new Date(waktu).toLocaleString('id-ID',{
     day:'2-digit',month:'long',year:'numeric',
     hour:'2-digit',minute:'2-digit'
   });
 }
+
+function hitungCuci(m){
+  return m.riwayat.filter(t=>
+    t.jenis==='Cuci berbayar' && t.status==='berhasil'
+  ).length;
+}
+
+function jumlahHadiah(m){
+  return Math.floor(hitungCuci(m)/10);
+}
+
+function jumlahGratisTersedia(m){
+  return Math.max(0,jumlahHadiah(m)-m.totalKlaim);
+}
+
 function daftar(){
   const nama=document.getElementById('nama').value.trim();
   const plat=document.getElementById('plat').value.trim().toUpperCase();
   const telepon=document.getElementById('telepon').value.trim();
-  if(!telepon){alert('Masukkan nomor WhatsApp untuk mencari member atau mendaftar.');return}
+
+  if(!telepon){
+    alert('Masukkan nomor WhatsApp untuk mencari atau mendaftar member.');
+    return;
+  }
 
   const anggota=bacaData();
   let m=anggota.find(x=>x.telepon===telepon);
 
   if(!m){
-    if(!nama||!plat){alert('Member baru harus mengisi nama, nomor polisi, dan WhatsApp.');return}
+    if(!nama||!plat){
+      alert('Member baru harus mengisi nama, nomor polisi, dan WhatsApp.');
+      return;
+    }
+
     let n=Number(localStorage.getItem(KEY_NEXT)||'1');
     if(!Number.isSafeInteger(n)||n<1)n=1;
+
     m={
       nomor:'MOGE-'+String(n).padStart(5,'0'),
-      nama,plat,telepon,jumlahCuci:0,
-      gratisTersedia:0,totalKlaim:0,
-      hadiah:[],riwayat:[],
-      tanggalDaftar:new Date().toISOString()
+      nama,plat,telepon,totalKlaim:0,
+      riwayat:[],tanggalDaftar:new Date().toISOString()
     };
+
     anggota.push(m);
+
     try{
       localStorage.setItem(KEY_NEXT,String(n+1));
       simpan(anggota);
-    }catch(e){alert('Data gagal disimpan. Periksa ruang penyimpanan browser.');return}
+    }catch(e){
+      alert('Data gagal disimpan di browser.');
+      return;
+    }
   }else{
     if(nama)m.nama=nama;
     if(plat)m.plat=plat;
     try{simpan(anggota)}catch(e){}
   }
+
   memberAktif=m.nomor;
+  document.getElementById('nama').value=m.nama||'';
+  document.getElementById('plat').value=m.plat||'';
   tampilkan(m);
 }
-function cariAktif(){
+
+function aktif(){
   const anggota=bacaData();
   return {anggota,m:anggota.find(x=>x.nomor===memberAktif)};
 }
+
 function tambahCuci(){
-  const {anggota,m}=cariAktif();
+  const {anggota,m}=aktif();
   if(!m)return;
-  if(!confirm('Catat 1 kali cuci berbayar untuk '+m.nama+'?'))return;
 
-  const id='CUCI-'+Date.now()+'-'+Math.random().toString(36).slice(2,7);
-  const transaksi={
-    id,jenis:'Cuci berbayar',status:'berhasil',
-    tanggal:new Date().toISOString(),hadiahId:null
-  };
-  m.jumlahCuci++;
+  if(!confirm('Catat 1 kali cuci berbayar untuk member ini?'))return;
 
-  if(m.jumlahCuci>=10){
-    m.jumlahCuci=0;
-    const hadiahId='HADIAH-'+id;
-    transaksi.hadiahId=hadiahId;
-    m.hadiah.push({id:hadiahId,status:'tersedia',tanggal:new Date().toISOString()});
-    alert('Selamat! Member mendapatkan 1 kali cuci gratis.');
+  m.riwayat.unshift({
+    id:'CUCI-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),
+    jenis:'Cuci berbayar',
+    status:'berhasil',
+    tanggal:new Date().toISOString()
+  });
+
+  const sebelumnya=jumlahHadiah(m);
+  const sesudah=hitungCuci(m);
+  const hadiahBaru=Math.floor(sesudah/10);
+
+  try{
+    simpan(anggota);
+    tampilkan(m);
+
+    if(hadiahBaru>sebelumnya){
+      alert('Selamat! Member mendapatkan 1 kali cuci gratis.');
+    }else{
+      alert('Cuci berhasil dicatat.');
+    }
+  }catch(e){
+    alert('Gagal menyimpan transaksi.');
   }
-  m.riwayat.unshift(transaksi);
-  m.gratisTersedia=m.hadiah.filter(h=>h.status==='tersedia').length;
-
-  try{simpan(anggota);tampilkan(m)}
-  catch(e){alert('Gagal menyimpan data.')}
 }
-function gunakanGratis(hadiahId){
-  const {anggota,m}=cariAktif();
+
+function gunakanGratis(){
+  const {anggota,m}=aktif();
   if(!m)return;
-  const h=m.hadiah.find(x=>x.id===hadiahId&&x.status==='tersedia');
-  if(!h){alert('Kupon gratis tidak tersedia.');return}
+
+  if(jumlahGratisTersedia(m)<=0){
+    alert('Belum ada kupon cuci gratis yang tersedia.');
+    return;
+  }
+
   if(!confirm('Konfirmasi penggunaan 1 kali cuci gratis?'))return;
 
-  h.status='diklaim';
-  h.tanggal=new Date().toISOString();
   m.totalKlaim++;
   m.riwayat.unshift({
-    id:'KLAIM-'+Date.now(),jenis:'Klaim cuci gratis',
-    status:'berhasil',tanggal:new Date().toISOString(),
-    hadiahId:h.id
+    id:'KLAIM-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),
+    jenis:'Klaim cuci gratis',
+    status:'berhasil',
+    tanggal:new Date().toISOString()
   });
-  m.gratisTersedia=m.hadiah.filter(x=>x.status==='tersedia').length;
-  try{simpan(anggota);tampilkan(m)}
-  catch(e){alert('Gagal menyimpan klaim.')}
+
+  try{
+    simpan(anggota);
+    tampilkan(m);
+    alert('Klaim cuci gratis berhasil dicatat.');
+  }catch(e){
+    alert('Gagal menyimpan klaim.');
+  }
 }
+
 function batalkan(id){
-  const {anggota,m}=cariAktif();
+  const {anggota,m}=aktif();
   if(!m)return;
-  const t=m.riwayat.find(x=>x.id===id&&x.jenis==='Cuci berbayar'&&x.status==='berhasil');
-  if(!t)return;
 
-  const transaksiAktif=m.riwayat.find(x=>x.jenis==='Cuci berbayar'&&x.status==='berhasil');
-  if(!transaksiAktif||transaksiAktif.id!==id){
-    alert('Untuk menjaga hitungan hadiah tetap benar, hanya transaksi cuci terakhir yang dapat dibatalkan.');
+  const t=m.riwayat.find(x=>
+    x.id===id &&
+    x.jenis==='Cuci berbayar' &&
+    x.status==='berhasil'
+  );
+
+  if(!t){
+    alert('Transaksi tidak ditemukan atau sudah dibatalkan.');
     return;
   }
 
-  const hadiah=t.hadiahId?m.hadiah.find(x=>x.id===t.hadiahId):null;
-  if(hadiah&&hadiah.status==='diklaim'){
-    alert('Transaksi ini sudah menghasilkan hadiah yang diklaim. Hubungi admin untuk koreksi.');
+  const totalSebelum=hitungCuci(m);
+  const totalSesudah=totalSebelum-1;
+  const hadiahSesudah=Math.floor(totalSesudah/10);
+
+  // Jangan sampai jumlah hadiah yang sudah diklaim melebihi hadiah yang sah.
+  if(hadiahSesudah<m.totalKlaim){
+    alert(
+      'Pembatalan ini memengaruhi hadiah gratis yang sudah diklaim. '+
+      'Transaksi tidak dibatalkan otomatis. Minta admin memeriksa riwayat hadiah.'
+    );
     return;
   }
-  if(!confirm('Batalkan transaksi cuci tanggal '+tanggal(t.tanggal)+'? Riwayat pembatalan tetap disimpan.'))return;
+
+  if(!confirm(
+    'Batalkan cuci tanggal '+tanggal(t.tanggal)+'?\n'+
+    'Riwayat transaksi dan tanggal pembatalan tetap disimpan.'
+  ))return;
 
   t.status='dibatalkan';
   t.tanggalBatal=new Date().toISOString();
 
-  if(hadiah&&hadiah.status==='tersedia'){
-    m.hadiah=m.hadiah.filter(x=>x.id!==hadiah.id);
-    m.jumlahCuci=9;
-  }else{
-    m.jumlahCuci=Math.max(0,m.jumlahCuci-1);
+  try{
+    simpan(anggota);
+    tampilkan(m);
+    alert('Transaksi berhasil dibatalkan. Progres cuci sudah diperbarui.');
+  }catch(e){
+    alert('Gagal menyimpan pembatalan.');
   }
-  m.gratisTersedia=m.hadiah.filter(x=>x.status==='tersedia').length;
-  try{simpan(anggota);tampilkan(m)}
-  catch(e){alert('Gagal menyimpan pembatalan.')}
 }
+
 function tampilkan(m){
   const hasil=document.getElementById('hasil');
   hasil.replaceChildren();
+
   const box=document.createElement('div');
   box.className='member';
+
   function teks(s,kelas){
     const p=document.createElement('p');
     p.textContent=s;
     if(kelas)p.className=kelas;
     box.appendChild(p);
   }
+
+  const progres=hitungCuci(m)%10;
   teks('KARTU MEMBER','small');
   teks(m.nomor,'nomor');
   teks('Nama: '+m.nama);
   teks('Nomor polisi: '+m.plat);
   teks('WhatsApp: '+m.telepon);
-  teks('Progres cuci: '+m.jumlahCuci+'/10 kali');
-  teks('Cuci gratis tersedia: '+m.hadiah.filter(h=>h.status==='tersedia').length);
+  teks('Progres menuju hadiah berikutnya: '+progres+'/10');
+  teks('Total cuci berbayar yang sah: '+hitungCuci(m));
+  teks('Kupon cuci gratis tersedia: '+jumlahGratisTersedia(m));
   teks('Total klaim cuci gratis: '+m.totalKlaim);
 
   const tambah=document.createElement('button');
-  tambah.textContent='Tambah 1 Kali Cuci';
+  tambah.textContent='TAMBAH 1 KALI CUCI';
   tambah.onclick=tambahCuci;
   box.appendChild(tambah);
 
-  const sub=document.createElement('h3');
-  sub.textContent='Kupon Cuci Gratis';
-  box.appendChild(sub);
-  const hadiahTersedia=m.hadiah.filter(h=>h.status==='tersedia');
-  if(!hadiahTersedia.length)teks('Belum ada kupon gratis tersedia.','small');
-  hadiahTersedia.forEach(h=>{
-    const b=document.createElement('button');
-    b.className='secondary';
-    b.textContent='Klaim 1 Cuci Gratis';
-    b.onclick=()=>gunakanGratis(h.id);
-    box.appendChild(b);
-  });
+  const gratis=document.createElement('button');
+  gratis.className='secondary';
+  gratis.textContent='KLAIM 1 CUCI GRATIS';
+  gratis.onclick=gunakanGratis;
+  gratis.disabled=jumlahGratisTersedia(m)<=0;
+  box.appendChild(gratis);
 
   const judul=document.createElement('h3');
-  judul.textContent='Riwayat Cuci dan Klaim';
+  judul.textContent='RIWAYAT CUCI & KLAIM';
   box.appendChild(judul);
+
   if(!m.riwayat.length)teks('Belum ada riwayat transaksi.','small');
 
   m.riwayat.forEach(t=>{
     const e=document.createElement('div');
     e.className='entry';
+
     const p=document.createElement('p');
-    p.textContent=t.jenis+' — '+t.status;
+    p.textContent=t.jenis+' — '+t.status.toUpperCase();
     e.appendChild(p);
+
     const d=document.createElement('p');
     d.className='small';
     d.textContent='Tanggal: '+tanggal(t.tanggal);
     e.appendChild(d);
+
     if(t.tanggalBatal){
-      const b=document.createElement('p');
-      b.className='small';
-      b.textContent='Dibatalkan: '+tanggal(t.tanggalBatal);
-      e.appendChild(b);
+      const db=document.createElement('p');
+      db.className='small';
+      db.textContent='Tanggal pembatalan: '+tanggal(t.tanggalBatal);
+      e.appendChild(db);
     }
-    if(t.jenis==='Cuci berbayar'&&t.status==='berhasil'){
+
+    if(t.jenis==='Cuci berbayar' && t.status==='berhasil'){
       const b=document.createElement('button');
       b.className='cancel';
       b.textContent='HAPUS / BATALKAN CUCI';
       b.onclick=()=>batalkan(t.id);
       e.appendChild(b);
     }
+
     box.appendChild(e);
   });
+
   hasil.appendChild(box);
 }
 </script>
