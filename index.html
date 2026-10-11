@@ -393,6 +393,63 @@ async function hubungkan(){
     alert('Sinkronisasi gagal. Periksa PIN dan konfigurasi server.');
   }
 }  
+async function hubungkan() {
+  const pin = document.getElementById('adminPin').value.trim();
+  const status = document.getElementById('statusSync');
+
+  if (!pin) {
+    alert('Masukkan PIN Admin terlebih dahulu.');
+    return;
+  }
+
+  status.textContent = 'Menghubungkan ke server...';
+
+  try {
+    const response = await fetch('/api/loyalty', {
+      method: 'GET',
+      headers: { 'x-moge-pin': pin }
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Gagal terhubung ke server.');
+    }
+
+    const lokal = bacaData();
+    const server = Array.isArray(result.members) ? result.members : [];
+    const gabungan = [...server];
+
+    lokal.forEach(member => {
+      if (!gabungan.some(item => item.nomor === member.nomor)) {
+        gabungan.push(member);
+      }
+    });
+
+    for (const member of gabungan) {
+      const simpan = await fetch('/api/loyalty', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-moge-pin': pin
+        },
+        body: JSON.stringify({ member })
+      });
+
+      if (!simpan.ok) {
+        const detail = await simpan.json().catch(() => ({}));
+        throw new Error(detail.error || 'Gagal menyimpan member.');
+      }
+    }
+
+    localStorage.setItem(KEY_DATA, JSON.stringify(gabungan));
+    status.textContent = 'Sinkronisasi berhasil. Member: ' + gabungan.length;
+    alert('Sinkronisasi berhasil.');
+  } catch (error) {
+    status.textContent = 'Sinkronisasi gagal.';
+    alert('Sinkronisasi gagal: ' + error.message);
+  }
+}
 </script>
 </body>
 </html>
