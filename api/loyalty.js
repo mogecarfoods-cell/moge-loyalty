@@ -1,333 +1,100 @@
-<!DOCTYPE html>  <html lang="id">  
-<head>  
-<meta charset="UTF-8">  
-<meta name="viewport" content="width=device-width, initial-scale=1">  
-<title>MOGE Carwash & Food</title>  
-<style>  
-*{box-sizing:border-box}  
-body{font-family:Arial,sans-serif;background:#101820;color:white;text-align:center;padding:16px}  
-.card{max-width:440px;margin:20px auto;padding:22px;background:#202b35;border-radius:18px}  
-input,button{width:100%;padding:13px;margin:7px 0;border:0;border-radius:9px;font-size:16px}  
-button{background:#e4b34c;color:#101820;font-weight:bold;cursor:pointer}  
-.secondary{background:#cbd5df}  
-.cancel{background:#c62828;color:white}  
-.muted,.small{color:#cbd5df}  
-.small{font-size:13px}  
-.member{background:#101820;border:1px solid #e4b34c;border-radius:12px;padding:14px;margin-top:14px;text-align:left;overflow-wrap:anywhere}  
-.nomor{color:#e4b34c;font-size:24px;font-weight:bold;text-align:center}  
-.entry{border-bottom:1px solid #394653;padding:10px 0}  
-</style>  
-</head>  
-<body>  
-<div class="card">  
-  <h1>MOGE</h1>  
-  <h2>Carwash &amp; Food</h2>  
-  <p class="muted">Kartu Loyalitas Pelanggan</p>    <input id="nama" placeholder="Nama pelanggan">  
-  <input id="plat" placeholder="Nomor polisi kendaraan">  
-<input id="telepon" type="tel" placeholder="Nomor WhatsApp">  
-<input id="adminPin" type="password" placeholder="PIN Admin">  
-<button class="secondary" onclick="hubungkan()">SINKRONKAN DATA</button>  
-<p id="statusSync" class="small">Belum tersambung</p>  
-  <button onclick="daftar()">DAFTAR / CARI MEMBER</button>  
-  <div id="hasil" aria-live="polite"></div>    <p class="muted">Kumpulkan 10 kali cuci berbayar untuk mendapatkan 1 kali cuci gratis.</p>  
-  <p class="muted">Garansi Hujan — S&amp;K berlaku.</p>  
-</div>  <script>  
-const KEY_DATA='moge_loyalty_members_v1';  
-const KEY_NEXT='moge_loyalty_next_number_v1';  
-let memberAktif=null;  
-  
-function bacaData(){  
-  try{  
-    const data=JSON.parse(localStorage.getItem(KEY_DATA)||'[]');  
-    if(!Array.isArray(data))return [];  
-  
-    data.forEach(m=>{  
-      if(!Array.isArray(m.riwayat))m.riwayat=[];  
-      if(typeof m.totalKlaim!=='number')m.totalKlaim=0;  
-  
-      // Pertahankan jumlah klaim yang tersimpan dari versi lama.  
-      if(Array.isArray(m.hadiah)){  
-        const klaimLama=m.hadiah.filter(h=>h.status==='diklaim').length;  
-        m.totalKlaim=Math.max(m.totalKlaim,klaimLama);  
-      }  
-  
-      // Migrasi data cuci dari versi lama bila memungkinkan.  
-      if(!m.riwayat.some(t=>t.jenis==='Cuci berbayar') &&  
-         typeof m.jumlahCuci==='number' && m.jumlahCuci>0){  
-        for(let i=0;i<m.jumlahCuci;i++){  
-          m.riwayat.push({  
-            id:'MIGRASI-'+m.nomor+'-'+i,  
-            jenis:'Cuci berbayar',  
-            status:'berhasil',  
-            tanggal:m.tanggalDaftar||new Date().toISOString(),  
-            migrasi:true  
-          });  
-        }  
-      }  
-    });  
-    return data;  
-  }catch(e){return []}  
-}  
-  
-function simpan(data){  
-  localStorage.setItem(KEY_DATA,JSON.stringify(data));  
-}  
-  
-function tanggal(waktu){  
-  if(!waktu)return 'Tanggal tidak tersedia';  
-  return new Date(waktu).toLocaleString('id-ID',{  
-    day:'2-digit',month:'long',year:'numeric',  
-    hour:'2-digit',minute:'2-digit'  
-  });  
-}  
-  
-function hitungCuci(m){  
-  return m.riwayat.filter(t=>  
-    t.jenis==='Cuci berbayar' && t.status==='berhasil'  
-  ).length;  
-}  
-  
-function jumlahHadiah(m){  
-  return Math.floor(hitungCuci(m)/10);  
-}  
-  
-function jumlahGratisTersedia(m){  
-  return Math.max(0,jumlahHadiah(m)-m.totalKlaim);  
-}  
-  
-function daftar(){  
-  const nama=document.getElementById('nama').value.trim();  
-  const plat=document.getElementById('plat').value.trim().toUpperCase();  
-  const telepon=document.getElementById('telepon').value.trim();  
-  
-  if(!telepon){  
-    alert('Masukkan nomor WhatsApp untuk mencari atau mendaftar member.');  
-    return;  
-  }  
-  
-  const anggota=bacaData();  
-  let m=anggota.find(x=>x.telepon===telepon);  
-  
-  if(!m){  
-    if(!nama||!plat){  
-      alert('Member baru harus mengisi nama, nomor polisi, dan WhatsApp.');  
-      return;  
-    }  
-  
-    let n=Number(localStorage.getItem(KEY_NEXT)||'1');  
-    if(!Number.isSafeInteger(n)||n<1)n=1;  
-  
-    m={  
-      nomor:'MOGE-'+String(n).padStart(5,'0'),  
-      nama,plat,telepon,totalKlaim:0,  
-      riwayat:[],tanggalDaftar:new Date().toISOString()  
-    };  
-  
-    anggota.push(m);  
-  
-    try{  
-      localStorage.setItem(KEY_NEXT,String(n+1));  
-      simpan(anggota);  
-    }catch(e){  
-      alert('Data gagal disimpan di browser.');  
-      return;  
-    }  
-  }else{  
-    if(nama)m.nama=nama;  
-    if(plat)m.plat=plat;  
-    try{simpan(anggota)}catch(e){}  
-  }  
-  
-  memberAktif=m.nomor;  
-  document.getElementById('nama').value=m.nama||'';  
-  document.getElementById('plat').value=m.plat||'';  
-  tampilkan(m);  
-}  
-  
-function aktif(){  
-  const anggota=bacaData();  
-  return {anggota,m:anggota.find(x=>x.nomor===memberAktif)};  
-}  
-  
-function tambahCuci(){  
-  const {anggota,m}=aktif();  
-  if(!m)return;  
-  
-  if(!confirm('Catat 1 kali cuci berbayar untuk member ini?'))return;  
-  
-  m.riwayat.unshift({  
-    id:'CUCI-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),  
-    jenis:'Cuci berbayar',  
-    status:'berhasil',  
-    tanggal:new Date().toISOString()  
-  });  
-  
-  const sebelumnya=jumlahHadiah(m);  
-  const sesudah=hitungCuci(m);  
-  const hadiahBaru=Math.floor(sesudah/10);  
-  
-  try{  
-    simpan(anggota);  
-    tampilkan(m);  
-  
-    if(hadiahBaru>sebelumnya){  
-      alert('Selamat! Member mendapatkan 1 kali cuci gratis.');  
-    }else{  
-      alert('Cuci berhasil dicatat.');  
-    }  
-  }catch(e){  
-    alert('Gagal menyimpan transaksi.');  
-  }  
-}  
-  
-function gunakanGratis(){  
-  const {anggota,m}=aktif();  
-  if(!m)return;  
-  
-  if(jumlahGratisTersedia(m)<=0){  
-    alert('Belum ada kupon cuci gratis yang tersedia.');  
-    return;  
-  }  
-  
-  if(!confirm('Konfirmasi penggunaan 1 kali cuci gratis?'))return;  
-  
-  m.totalKlaim++;  
-  m.riwayat.unshift({  
-    id:'KLAIM-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),  
-    jenis:'Klaim cuci gratis',  
-    status:'berhasil',  
-    tanggal:new Date().toISOString()  
-  });  
-  
-  try{  
-    simpan(anggota);  
-    tampilkan(m);  
-    alert('Klaim cuci gratis berhasil dicatat.');  
-  }catch(e){  
-    alert('Gagal menyimpan klaim.');  
-  }  
-}  
-  
-function batalkan(id){  
-  const {anggota,m}=aktif();  
-  if(!m)return;  
-  
-  const t=m.riwayat.find(x=>  
-    x.id===id &&  
-    x.jenis==='Cuci berbayar' &&  
-    x.status==='berhasil'  
-  );  
-  
-  if(!t){  
-    alert('Transaksi tidak ditemukan atau sudah dibatalkan.');  
-    return;  
-  }  
-  
-  const totalSebelum=hitungCuci(m);  
-  const totalSesudah=totalSebelum-1;  
-  const hadiahSesudah=Math.floor(totalSesudah/10);  
-  
-  // Jangan sampai jumlah hadiah yang sudah diklaim melebihi hadiah yang sah.  
-  if(hadiahSesudah<m.totalKlaim){  
-    alert(  
-      'Pembatalan ini memengaruhi hadiah gratis yang sudah diklaim. '+  
-      'Transaksi tidak dibatalkan otomatis. Minta admin memeriksa riwayat hadiah.'  
-    );  
-    return;  
-  }  
-  
-  if(!confirm(  
-    'Batalkan cuci tanggal '+tanggal(t.tanggal)+'?\n'+  
-    'Riwayat transaksi dan tanggal pembatalan tetap disimpan.'  
-  ))return;  
-  
-  t.status='dibatalkan';  
-  t.tanggalBatal=new Date().toISOString();  
-  
-  try{  
-    simpan(anggota);  
-    tampilkan(m);  
-    alert('Transaksi berhasil dibatalkan. Progres cuci sudah diperbarui.');  
-  }catch(e){  
-    alert('Gagal menyimpan pembatalan.');  
-  }  
-}  
-  
-function tampilkan(m){  
-  const hasil=document.getElementById('hasil');  
-  hasil.replaceChildren();  
-  
-  const box=document.createElement('div');  
-  box.className='member';  
-  
-  function teks(s,kelas){  
-    const p=document.createElement('p');  
-    p.textContent=s;  
-    if(kelas)p.className=kelas;  
-    box.appendChild(p);  
-  }  
-  
-  const progres=hitungCuci(m)%10;  
-  teks('KARTU MEMBER','small');  
-  teks(m.nomor,'nomor');  
-  teks('Nama: '+m.nama);  
-  teks('Nomor polisi: '+m.plat);  
-  teks('WhatsApp: '+m.telepon);  
-  teks('Progres menuju hadiah berikutnya: '+progres+'/10');  
-  teks('Total cuci berbayar yang sah: '+hitungCuci(m));  
-  teks('Kupon cuci gratis tersedia: '+jumlahGratisTersedia(m));  
-  teks('Total klaim cuci gratis: '+m.totalKlaim);  
-  
-  const tambah=document.createElement('button');  
-  tambah.textContent='TAMBAH 1 KALI CUCI';  
-  tambah.onclick=tambahCuci;  
-  box.appendChild(tambah);  
-  
-  const gratis=document.createElement('button');  
-  gratis.className='secondary';  
-  gratis.textContent='KLAIM 1 CUCI GRATIS';  
-  gratis.onclick=gunakanGratis;  
-  gratis.disabled=jumlahGratisTersedia(m)<=0;  
-  box.appendChild(gratis);  
-  
-  const judul=document.createElement('h3');  
-  judul.textContent='RIWAYAT CUCI & KLAIM';  
-  box.appendChild(judul);  
-  
-  if(!m.riwayat.length)teks('Belum ada riwayat transaksi.','small');  
-  
-  m.riwayat.forEach(t=>{  
-    const e=document.createElement('div');  
-    e.className='entry';  
-  
-    const p=document.createElement('p');  
-    p.textContent=t.jenis+' — '+t.status.toUpperCase();  
-    e.appendChild(p);  
-  
-    const d=document.createElement('p');  
-    d.className='small';  
-    d.textContent='Tanggal: '+tanggal(t.tanggal);  
-    e.appendChild(d);  
-  
-    if(t.tanggalBatal){  
-      const db=document.createElement('p');  
-      db.className='small';  
-      db.textContent='Tanggal pembatalan: '+tanggal(t.tanggalBatal);  
-      e.appendChild(db);  
-    }  
-  
-    if(t.jenis==='Cuci berbayar' && t.status==='berhasil'){  
-      const b=document.createElement('button');  
-      b.className='cancel';  
-      b.textContent='HAPUS / BATALKAN CUCI';  
-      b.onclick=()=>batalkan(t.id);  
-      e.appendChild(b);  
-    }  
-  
-    box.appendChild(e);  
-  });  
-  
-  hasil.appendChild(box);  
-}  
-</script>  </body>  
-</html>  
+
+export default async function handler(req, res) {
+  const pin = req.headers["x-moge-pin"];
+
+  if (
+    !process.env.MOGE_ADMIN_PIN ||
+    pin !== process.env.MOGE_ADMIN_PIN
+  ) {
+    return res.status(401).json({
+      error: "PIN Admin salah atau belum diatur"
+    });
+  }
+
+  if (!["GET", "POST"].includes(req.method)) {
+    res.setHeader("Allow", "GET, POST");
+    return res.status(405).json({
+      error: "Metode tidak diizinkan"
+    });
+  }
+
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
+    return res.status(500).json({
+      error: "Konfigurasi database belum lengkap"
+    });
+  }
+
+  const headers = {
+    apikey: key,
+    Authorization: `Bearer ${key}`,
+    "Content-Type": "application/json"
+  };
+
+  try {
+    if (req.method === "GET") {
+      const response = await fetch(
+        `${url}/rest/v1/loyalty_records?select=member_no,whatsapp,data&order=member_no.asc`,
+        { headers }
+      );
+
+      if (!response.ok) {
+        return res.status(502).json({
+          error: "Gagal membaca database Supabase"
+        });
+      }
+
+      const rows = await response.json();
+
+      return res.status(200).json({
+        members: rows.map(row => row.data)
+      });
+    }
+
+    const member = req.body?.member;
+
+    if (
+      !member ||
+      typeof member.nomor !== "string" ||
+      typeof member.telepon !== "string" ||
+      !member.nomor ||
+      !member.telepon
+    ) {
+      return res.status(400).json({
+        error: "Data member tidak lengkap"
+      });
+    }
+
+    const response = await fetch(
+      `${url}/rest/v1/loyalty_records?on_conflict=member_no`,
+      {
+        method: "POST",
+        headers: {
+          ...headers,
+          Prefer: "resolution=merge-duplicates,return=minimal"
+        },
+        body: JSON.stringify({
+          member_no: member.nomor,
+          whatsapp: member.telepon,
+          data: member
+        })
+      }
+    );
+
+    if (!response.ok) {
+      return res.status(502).json({
+        error: "Gagal menyimpan data member ke database"
+      });
+    }
+
+    return res.status(200).json({
+      success: true
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: "Terjadi kesalahan pada server"
+    });
+  }
+}
