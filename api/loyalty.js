@@ -99,13 +99,13 @@ export default async function handler(req, res) {
             ...headers,
             Prefer: "return=minimal"
           },
-          body: JSON.stringify({
-            data: {
-              __deleted: true,
-              nomor: memberNo,
-              dihapusPada: new Date().toISOString()
-            }
-          })
+body: JSON.stringify({
+  data: {
+    ...(row.data && typeof row.data === "object" ? row.data : {}),
+    __deleted: true,
+    dihapusPada: new Date().toISOString()
+  }
+})
         }
       );
 
