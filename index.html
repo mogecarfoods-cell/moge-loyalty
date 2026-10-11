@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MOGE Carwash & Food</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #101820;
+      color: white;
+      text-align: center;
+      padding: 24px;
+    }
+    .card {
+      max-width: 420px;
+      margin: 30px auto;
+      padding: 24px;
+      background: #202b35;
+      border-radius: 18px;
+    }
+    input, button {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 13px;
+      margin: 8px 0;
+      border-radius: 9px;
+      border: 0;
+      font-size: 16px;
+    }
+    button {
+      background: #e4b34c;
+      color: #101820;
+      font-weight: bold;
+    }
+    .muted { color: #cbd5df; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>MOGE</h1>
+    <h2>Carwash & Food</h2>
+    <p class="muted">Kartu Loyalitas Pelanggan</p>
+    <input id="nama" placeholder="Nama pelanggan">
+    <input id="plat" placeholder="Nomor polisi kendaraan">
+    <input id="telepon" placeholder="Nomor WhatsApp">
+    <button onclick="daftar()">Daftar Pelanggan</button>
+    <div id="hasil"></div>
+    <p class="muted">Kumpulkan 10 kali cuci untuk mendapatkan 1 kali cuci gratis.</p>
+    <p class="muted">Tanyakan ketentuan garansi hujan kepada kasir.</p>
+  </div>
+  <script>
+    function daftar() {
+      const nama = document.getElementById('nama').value.trim();
+      const plat = document.getElementById('plat').value.trim();
+      const telepon = document.getElementById('telepon').value.trim();
+      if (!nama || !plat || !telepon) {
+        alert('Mohon isi semua data.');
+        return;
+      }
+      document.getElementById('hasil').innerHTML =
+        '<h3>Pendaftaran berhasil di halaman ini, ' +
+        nama.replace(/&/g, '&amp;').replace(/</g, '&lt;') +
+        '!</h3><p>Plat kendaraan: ' +
+        plat.replace(/&/g, '&amp;').replace(/</g, '&lt;') +
+        '</p><p>Catatan: data ini belum tersimpan ke database.</p>';
+    }
+  </script>
+</body>
+</html>
