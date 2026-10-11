@@ -28,7 +28,10 @@ button{background:#e4b34c;color:#101820;font-weight:bold;cursor:pointer}
 
   <input id="nama" placeholder="Nama pelanggan">
   <input id="plat" placeholder="Nomor polisi kendaraan">
-  <input id="telepon" type="tel" placeholder="Nomor WhatsApp">
+<input id="telepon" type="tel" placeholder="Nomor WhatsApp">
+<input id="adminPin" type="password" placeholder="PIN Admin">
+<button class="secondary" onclick="hubungkan()">SINKRONKAN DATA</button>
+<p id="statusSync" class="small">Belum tersambung</p>
   <button onclick="daftar()">DAFTAR / CARI MEMBER</button>
   <div id="hasil" aria-live="polite"></div>
 
