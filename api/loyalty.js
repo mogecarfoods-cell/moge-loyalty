@@ -11,8 +11,8 @@ export default async function handler(req, res) {
     });
   }
 
-  if (!["GET", "POST"].includes(req.method)) {
-    res.setHeader("Allow", "GET, POST");
+if (!["GET", "POST", "DELETE"].includes(req.method)) {
+  res.setHeader("Allow", "GET, POST, DELETE");
     return res.status(405).json({
       error: "Metode tidak diizinkan"
     });
