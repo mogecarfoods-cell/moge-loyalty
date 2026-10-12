@@ -23,23 +23,28 @@ async function hubungkan() {
     }
 
     const lokal = bacaData();
-    const server = Array.isArray(result.members) ? result.members : [];
+    const server = Array.isArray(result.members)
+      ? result.members
+      : [];
+
     const terhapus = new Set(
       (Array.isArray(result.deletedMemberNos)
         ? result.deletedMemberNos
         : []).map(String)
     );
 
-    // Member yang sudah dihapus di server tidak boleh muncul kembali.
+    // Jangan tampilkan atau kirim ulang member yang sudah dihapus.
     const lokalAktif = lokal.filter(
       m => !terhapus.has(String(m.nomor))
     );
+
     const serverAktif = server.filter(
       m => !terhapus.has(String(m.nomor))
     );
 
     const gabungan = serverAktif.map(m => ({ ...m }));
 
+    // Gabungkan data lokal dan server berdasarkan nomor member.
     for (const lokalMember of lokalAktif) {
       const index = gabungan.findIndex(
         m => String(m.nomor) === String(lokalMember.nomor)
@@ -51,18 +56,24 @@ async function hubungkan() {
       }
 
       const serverMember = gabungan[index];
+
       const riwayat = [
         ...(Array.isArray(serverMember.riwayat)
-          ? serverMember.riwayat : []),
+          ? serverMember.riwayat
+          : []),
         ...(Array.isArray(lokalMember.riwayat)
-          ? lokalMember.riwayat : [])
+          ? lokalMember.riwayat
+          : [])
       ];
 
       const riwayatUnik = [
         ...new Map(
           riwayat.map((item, i) => [
             item.id || [
-              item.jenis, item.tanggal, item.status, i
+              item.jenis,
+              item.tanggal,
+              item.status,
+              i
             ].join('|'),
             item
           ])
@@ -80,7 +91,12 @@ async function hubungkan() {
       };
     }
 
+    // Simpan hanya member yang tidak ditandai terhapus.
     for (const member of gabungan) {
+      if (terhapus.has(String(member.nomor))) {
+        continue;
+      }
+
       const simpanResponse = await fetch('/api/loyalty', {
         method: 'POST',
         headers: {
@@ -92,6 +108,7 @@ async function hubungkan() {
 
       if (!simpanResponse.ok) {
         const detail = await simpanResponse.json().catch(() => ({}));
+
         throw new Error(
           detail.error || 'Gagal menyimpan member ke server.'
         );
@@ -103,9 +120,13 @@ async function hubungkan() {
     status.textContent =
       'Sinkronisasi berhasil. Total member: ' + gabungan.length;
 
-    alert('Sinkronisasi berhasil. Total member: ' + gabungan.length);
+    alert(
+      'Sinkronisasi berhasil. Total member: ' + gabungan.length
+    );
   } catch (error) {
-    status.textContent = 'Sinkronisasi gagal: ' + error.message;
+    status.textContent =
+      'Sinkronisasi gagal: ' + error.message;
+
     alert('Sinkronisasi gagal: ' + error.message);
   }
 }
