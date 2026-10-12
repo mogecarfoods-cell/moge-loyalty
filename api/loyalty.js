@@ -48,8 +48,15 @@ export default async function handler(req, res) {
 
       const rows = await response.json();
 
-      return res.status(200).json({
-        members: rows
+return res.status(200).json({
+  members: rows
+    .filter(row => row.data && row.data.__deleted !== true)
+    .map(row => row.data),
+
+  deletedMemberNos: rows
+    .filter(row => row.data && row.data.__deleted === true)
+    .map(row => row.member_no)
+});
           .filter(row => row.data && row.data.__deleted !== true)
           .map(row => row.data)
       });
