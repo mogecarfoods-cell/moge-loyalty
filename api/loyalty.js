@@ -54,9 +54,20 @@ return res.status(200).json({
     .map(row => row.data),
 
   deletedMemberNos: rows
-    .filter(row => row.data && row.data.__deleted === true)
-    .map(row => row.member_no)
-});
+    
+      const rows = await response.json();
+
+      return res.status(200).json({
+        members: rows
+          .filter(row => row.data && row.data.__deleted !== true)
+          .map(row => row.data),
+
+        deletedMemberNos: rows
+          .filter(row => row.data && row.data.__deleted === true)
+          .map(row => row.member_no)
+      });
+    }
+;
           .filter(row => row.data && row.data.__deleted !== true)
           .map(row => row.data)
       });
